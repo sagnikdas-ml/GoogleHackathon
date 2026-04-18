@@ -9,6 +9,11 @@ export default function AuthButtons() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return;
+    }
+
     const unsub = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -18,6 +23,11 @@ export default function AuthButtons() {
   }, []);
 
   const handleSignIn = async () => {
+    if (!auth) {
+      alert("Firebase web env vars are not configured.");
+      return;
+    }
+
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
@@ -28,6 +38,10 @@ export default function AuthButtons() {
   };
 
   const handleSignOut = async () => {
+    if (!auth) {
+      return;
+    }
+
     try {
       await signOut(auth);
     } catch (error) {
@@ -37,6 +51,10 @@ export default function AuthButtons() {
 
   if (loading) {
     return <p>Loading...</p>;
+  }
+
+  if (!auth) {
+    return <p className="muted">Configure Firebase web env vars to enable Google sign-in.</p>;
   }
 
   if (user) {

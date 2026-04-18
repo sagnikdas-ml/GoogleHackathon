@@ -20,6 +20,11 @@ export default function ClassesPage() {
   const classId = "cloud-computing";
 
   useEffect(() => {
+    if (!auth || !db) {
+      setStatus("Configure Firebase web env vars to enable shared notes.");
+      return;
+    }
+
     const unsubAuth = onAuthStateChanged(auth, (u) => setUser(u));
 
     const notesRef = collection(db, "classes", classId, "notes");
@@ -47,6 +52,11 @@ export default function ClassesPage() {
   }, []);
 
   const addNote = async () => {
+    if (!db) {
+      setStatus("Configure Firebase web env vars to enable shared notes.");
+      return;
+    }
+
     if (!user) {
       setStatus("Please sign in first");
       return;

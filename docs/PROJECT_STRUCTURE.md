@@ -47,6 +47,6 @@ study-buddy-hackathon/
 
 ## Important hackathon shortcuts
 
-- `transcribeAudio` is a stub so the demo still works even if Speech-to-Text is not fully configured.
 - Quiz generation and transcript summarization are rule-based to keep costs low.
+- `transcribeAudio` accepts multipart audio uploads, saves transcript metadata in Firestore, and can optionally mirror raw audio to Cloud Storage.
 - Firestore rules are minimal and should be tightened after the hackathon.

@@ -27,3 +27,14 @@ export type EventDoc = {
   noteId?: string;
   calendarEventId?: string;
 };
+
+export type TranscriptItem = {
+  id: string;
+  transcript: string;
+  audioUri: string | null;
+  mimeType: string | null;
+  languageCode: string;
+  model: string;
+  durationMs: number | null;
+  createdAt: string | null;
+};

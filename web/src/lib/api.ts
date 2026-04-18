@@ -1,11 +1,7 @@
-const base = process.env.NEXT_PUBLIC_FUNCTIONS_BASE_URL || 'http://localhost:5001';
+const base = process.env.NEXT_PUBLIC_FUNCTIONS_BASE_URL || '/api/functions';
 
-async function post<T>(path: string, body: Record<string, unknown>): Promise<T> {
-  const res = await fetch(`${base}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${base}${path}`, init);
 
   if (!res.ok) {
     const text = await res.text();
@@ -15,10 +11,23 @@ async function post<T>(path: string, body: Record<string, unknown>): Promise<T> 
   return res.json() as Promise<T>;
 }
 
+async function postJson<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  return request<T>(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+}
+
 export const api = {
-  createCalendarEvent: (payload: Record<string, unknown>) => post('/createCalendarEvent', payload),
-  generateQuiz: (payload: Record<string, unknown>) => post('/generateQuiz', payload),
-  summarizeTranscript: (payload: Record<string, unknown>) => post('/summarizeTranscript', payload),
-  exportNotesToDoc: (payload: Record<string, unknown>) => post('/exportNotesToDoc', payload),
-  transcribeAudio: (payload: Record<string, unknown>) => post('/transcribeAudio', payload)
+  createCalendarEvent: <T>(payload: Record<string, unknown>) => postJson<T>('/createCalendarEvent', payload),
+  generateQuiz: <T>(payload: Record<string, unknown>) => postJson<T>('/generateQuiz', payload),
+  summarizeTranscript: <T>(payload: Record<string, unknown>) => postJson<T>('/summarizeTranscript', payload),
+  exportNotesToDoc: <T>(payload: Record<string, unknown>) => postJson<T>('/exportNotesToDoc', payload),
+  listTranscriptions: <T>() => request<T>('/transcriptions'),
+  transcribeAudio: <T>(payload: FormData) =>
+    request<T>('/transcribeAudio', {
+      method: 'POST',
+      body: payload
+    })
 };

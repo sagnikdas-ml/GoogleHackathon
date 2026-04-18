@@ -6,7 +6,7 @@ Hackathon-ready starter for a student collaboration app with:
 - Shared notes in Firestore
 - Shared class events
 - Google Calendar event creation
-- Lecture transcript upload + Speech-to-Text hook
+- Lecture audio recording/upload + Speech-to-Text transcription history
 - Transcript-to-notes conversion
 - Quiz generation from notes
 - Export notes to Google Docs
@@ -15,7 +15,7 @@ Hackathon-ready starter for a student collaboration app with:
 
 - Next.js 14 + TypeScript
 - Firebase Auth + Firestore
-- Firebase Hosting / App Hosting compatible
+- App Engine compatible Next.js frontend
 - Firebase Functions (Node.js / TypeScript)
 - Google Calendar API
 - Google Docs API
@@ -77,8 +77,18 @@ npm run build
 firebase deploy --only functions
 ```
 
+### 7) Deploy the Next.js frontend to App Engine
+
+Update `web/app.yaml` with your Firebase web config and the deployed `FUNCTIONS_BASE_URL`, then run:
+
+```bash
+cd web
+gcloud app deploy
+```
+
 ## Notes
 
 - This is optimized for hackathon speed, not final production hardening.
 - Transcript summarization is rule-based to avoid GenAI costs.
+- Speech-to-Text uses Google Cloud ADC in deployed environments and can optionally write raw audio to Cloud Storage.
 - Calendar sharing happens by inviting the friend's email to the event and linking a shared note in Firestore.
