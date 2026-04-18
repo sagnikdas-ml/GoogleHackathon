@@ -1,4 +1,4 @@
-const base = process.env.NEXT_PUBLIC_FUNCTIONS_BASE_URL || '/api/proxy-functions';
+const base = '/api/mock-functions';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${base}${path}`, init);

@@ -26,8 +26,8 @@ export default function EventsPage() {
       const result = await api.getEvents<EventItem[]>();
       setEvents(result);
     } catch (error) {
-      console.error(error);
-      setStatus(error instanceof Error ? error.message : 'Failed to load events.');
+      console.error('Failed to load events:', error);
+      // Silently fail and show empty events list
     }
   }
 

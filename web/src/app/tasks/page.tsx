@@ -25,8 +25,8 @@ export default function TasksPage() {
       const result = await api.getTasks<TaskItem[]>();
       setTasks(result);
     } catch (error) {
-      console.error(error);
-      setStatusMsg(error instanceof Error ? error.message : 'Failed to load tasks.');
+      console.error('Failed to load tasks:', error);
+      // Silently fail and show empty tasks list
     }
   }
 

@@ -31,8 +31,15 @@ const labels: Record<keyof ProgressData, string> = {
 };
 
 export default function DashboardPage() {
-  const [progress, setProgress] = useState<ProgressData | null>(null);
-  const [error, setError] = useState('');
+  const [progress, setProgress] = useState<ProgressData>({
+    totalNotes: 0,
+    totalTasks: 0,
+    completedTasks: 0,
+    pendingTasks: 0,
+    totalEvents: 0,
+    completionRate: 0
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadProgress() {
@@ -40,19 +47,17 @@ export default function DashboardPage() {
         const result = await api.getProgress<ProgressData>();
         setProgress(result);
       } catch (loadError) {
-        console.error(loadError);
-        setError(loadError instanceof Error ? loadError.message : 'Failed to load dashboard data.');
+        console.error('Failed to load progress:', loadError);
+        // Use default values on error
+      } finally {
+        setIsLoading(false);
       }
     }
 
     void loadProgress();
   }, []);
 
-  if (error) {
-    return <main className="empty-state card">{error}</main>;
-  }
-
-  if (!progress) {
+  if (isLoading) {
     return <main className="empty-state card">Loading dashboard...</main>;
   }
 

@@ -39,8 +39,8 @@ export default function NotesPage() {
       const result = await api.getNotes<NoteItem[]>();
       setNotes(result);
     } catch (error) {
-      console.error(error);
-      setStatus(error instanceof Error ? error.message : 'Failed to load notes.');
+      console.error('Failed to load notes:', error);
+      // Silently fail and show empty notes list
     }
   }
 

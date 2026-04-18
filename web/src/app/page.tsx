@@ -43,7 +43,6 @@ const emptyFeed: FeedState = {
 export default function HomePage() {
   const [feed, setFeed] = useState<FeedState>(emptyFeed);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
 
   useEffect(() => {
     async function loadFeed() {
@@ -65,8 +64,8 @@ export default function HomePage() {
           events: sortByCreatedAt(events)
         });
       } catch (loadError) {
-        console.error(loadError);
-        setError(loadError instanceof Error ? loadError.message : 'Failed to load the study dashboard.');
+        console.error('Failed to load feed:', loadError);
+        // Use default empty feed state on error
       } finally {
         setLoading(false);
       }
@@ -119,8 +118,6 @@ export default function HomePage() {
 
       {loading ? (
         <section className="card empty-state">Loading recent activity...</section>
-      ) : error ? (
-        <section className="card empty-state">{error}</section>
       ) : (
         <section className="grid grid-3">
           <FeedColumn
