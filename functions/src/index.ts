@@ -221,6 +221,419 @@ app.get('/', (_req, res) => {
   res.json({ ok: true, service: 'study-buddy-functions' });
 });
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function toIsoString(value: unknown): string | null {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Timestamp) {
+    return value.toDate().toISOString();
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+  }
+
+  if (typeof value === 'object' && value !== null && 'toDate' in value) {
+    const maybeDate = (value as { toDate?: () => Date }).toDate?.();
+    return maybeDate ? maybeDate.toISOString() : null;
+  }
+
+  return null;
+}
+
+function serializeNote(id: string, data: Record<string, unknown>) {
+  return {
+    id,
+    title: typeof data.title === 'string' ? data.title : '',
+    content: typeof data.content === 'string' ? data.content : '',
+    subject: typeof data.subject === 'string' ? data.subject : '',
+    createdAt: toIsoString(data.createdAt),
+    updatedAt: toIsoString(data.updatedAt)
+  };
+}
+
+function serializeTask(id: string, data: Record<string, unknown>) {
+  return {
+    id,
+    title: typeof data.title === 'string' ? data.title : '',
+    subject: typeof data.subject === 'string' ? data.subject : '',
+    dueDate: typeof data.dueDate === 'string' ? data.dueDate : '',
+    status: typeof data.status === 'string' ? data.status : 'todo',
+    priority: typeof data.priority === 'string' ? data.priority : 'medium',
+    createdAt: toIsoString(data.createdAt),
+    updatedAt: toIsoString(data.updatedAt)
+  };
+}
+
+function serializeEvent(id: string, data: Record<string, unknown>) {
+  return {
+    id,
+    title: typeof data.title === 'string' ? data.title : '',
+    subject: typeof data.subject === 'string' ? data.subject : '',
+    startTime: typeof data.startTime === 'string' ? data.startTime : '',
+    endTime: typeof data.endTime === 'string' ? data.endTime : '',
+    sharedWith: Array.isArray(data.sharedWith) ? data.sharedWith : [],
+    createdAt: toIsoString(data.createdAt),
+    updatedAt: toIsoString(data.updatedAt)
+  };
+}
+
+app.post('/notes', async (req, res) => {
+  try {
+    const { title, content, subject } = req.body as {
+      title?: string;
+      content?: string;
+      subject?: string;
+    };
+
+    if (!isNonEmptyString(title) || !isNonEmptyString(content)) {
+      return res.status(400).json({ error: 'Title and content are required.' });
+    }
+
+    const newNote = {
+      title: title.trim(),
+      content: content.trim(),
+      subject: typeof subject === 'string' ? subject.trim() : '',
+      createdAt: Timestamp.now()
+    };
+
+    const docRef = await db.collection('notes').add(newNote);
+    res.status(201).json(serializeNote(docRef.id, newNote));
+  } catch (error) {
+    console.error('Failed to create note', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to create note.') });
+  }
+});
+
+app.get('/notes', async (_req, res) => {
+  try {
+    const snapshot = await db.collection('notes').get();
+    const items = snapshot.docs
+      .map((doc) => serializeNote(doc.id, doc.data()))
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    res.json(items);
+  } catch (error) {
+    console.error('Failed to load notes', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to load notes.') });
+  }
+});
+
+app.put('/notes/:id', async (req, res) => {
+  try {
+    const noteRef = db.collection('notes').doc(req.params.id);
+    const snapshot = await noteRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(404).json({ error: 'Note not found.' });
+    }
+
+    const current = snapshot.data() || {};
+    const { title, content, subject } = req.body as {
+      title?: string;
+      content?: string;
+      subject?: string;
+    };
+
+    const updatedNote = {
+      title: isNonEmptyString(title) ? title.trim() : typeof current.title === 'string' ? current.title : '',
+      content: isNonEmptyString(content) ? content.trim() : typeof current.content === 'string' ? current.content : '',
+      subject: typeof subject === 'string' ? subject.trim() : typeof current.subject === 'string' ? current.subject : '',
+      createdAt: current.createdAt || Timestamp.now(),
+      updatedAt: Timestamp.now()
+    };
+
+    await noteRef.set(updatedNote);
+    res.json(serializeNote(snapshot.id, updatedNote));
+  } catch (error) {
+    console.error('Failed to update note', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to update note.') });
+  }
+});
+
+app.delete('/notes/:id', async (req, res) => {
+  try {
+    const noteRef = db.collection('notes').doc(req.params.id);
+    const snapshot = await noteRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(404).json({ error: 'Note not found.' });
+    }
+
+    await noteRef.delete();
+    res.json({ message: 'Note deleted successfully.' });
+  } catch (error) {
+    console.error('Failed to delete note', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to delete note.') });
+  }
+});
+
+app.post('/tasks', async (req, res) => {
+  try {
+    const { title, subject, dueDate, status, priority } = req.body as {
+      title?: string;
+      subject?: string;
+      dueDate?: string;
+      status?: string;
+      priority?: string;
+    };
+
+    if (!isNonEmptyString(title)) {
+      return res.status(400).json({ error: 'Title is required.' });
+    }
+
+    const newTask = {
+      title: title.trim(),
+      subject: typeof subject === 'string' ? subject.trim() : '',
+      dueDate: typeof dueDate === 'string' ? dueDate.trim() : '',
+      status: typeof status === 'string' && status.trim() ? status.trim() : 'todo',
+      priority: typeof priority === 'string' && priority.trim() ? priority.trim() : 'medium',
+      createdAt: Timestamp.now()
+    };
+
+    const docRef = await db.collection('tasks').add(newTask);
+    res.status(201).json(serializeTask(docRef.id, newTask));
+  } catch (error) {
+    console.error('Failed to create task', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to create task.') });
+  }
+});
+
+app.get('/tasks', async (_req, res) => {
+  try {
+    const snapshot = await db.collection('tasks').get();
+    const items = snapshot.docs
+      .map((doc) => serializeTask(doc.id, doc.data()))
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    res.json(items);
+  } catch (error) {
+    console.error('Failed to load tasks', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to load tasks.') });
+  }
+});
+
+app.put('/tasks/:id', async (req, res) => {
+  try {
+    const taskRef = db.collection('tasks').doc(req.params.id);
+    const snapshot = await taskRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(404).json({ error: 'Task not found.' });
+    }
+
+    const current = snapshot.data() || {};
+    const { title, subject, dueDate, status, priority } = req.body as {
+      title?: string;
+      subject?: string;
+      dueDate?: string;
+      status?: string;
+      priority?: string;
+    };
+
+    const updatedTask = {
+      title: isNonEmptyString(title) ? title.trim() : typeof current.title === 'string' ? current.title : '',
+      subject: typeof subject === 'string' ? subject.trim() : typeof current.subject === 'string' ? current.subject : '',
+      dueDate: typeof dueDate === 'string' ? dueDate.trim() : typeof current.dueDate === 'string' ? current.dueDate : '',
+      status: typeof status === 'string' && status.trim() ? status.trim() : typeof current.status === 'string' ? current.status : 'todo',
+      priority:
+        typeof priority === 'string' && priority.trim()
+          ? priority.trim()
+          : typeof current.priority === 'string'
+            ? current.priority
+            : 'medium',
+      createdAt: current.createdAt || Timestamp.now(),
+      updatedAt: Timestamp.now()
+    };
+
+    await taskRef.set(updatedTask);
+    res.json(serializeTask(snapshot.id, updatedTask));
+  } catch (error) {
+    console.error('Failed to update task', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to update task.') });
+  }
+});
+
+app.delete('/tasks/:id', async (req, res) => {
+  try {
+    const taskRef = db.collection('tasks').doc(req.params.id);
+    const snapshot = await taskRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(404).json({ error: 'Task not found.' });
+    }
+
+    await taskRef.delete();
+    res.json({ message: 'Task deleted successfully.' });
+  } catch (error) {
+    console.error('Failed to delete task', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to delete task.') });
+  }
+});
+
+app.post('/events', async (req, res) => {
+  try {
+    const { title, subject, startTime, endTime } = req.body as {
+      title?: string;
+      subject?: string;
+      startTime?: string;
+      endTime?: string;
+    };
+
+    if (!isNonEmptyString(title) || !isNonEmptyString(startTime)) {
+      return res.status(400).json({ error: 'Title and start time are required.' });
+    }
+
+    const newEvent = {
+      title: title.trim(),
+      subject: typeof subject === 'string' ? subject.trim() : '',
+      startTime: startTime.trim(),
+      endTime: typeof endTime === 'string' ? endTime.trim() : '',
+      createdAt: Timestamp.now()
+    };
+
+    const docRef = await db.collection('events').add(newEvent);
+    res.status(201).json(serializeEvent(docRef.id, newEvent));
+  } catch (error) {
+    console.error('Failed to create event', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to create event.') });
+  }
+});
+
+app.get('/events', async (_req, res) => {
+  try {
+    const snapshot = await db.collection('events').get();
+    const items = snapshot.docs
+      .map((doc) => serializeEvent(doc.id, doc.data()))
+      .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    res.json(items);
+  } catch (error) {
+    console.error('Failed to load events', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to load events.') });
+  }
+});
+
+app.put('/events/:id', async (req, res) => {
+  try {
+    const eventRef = db.collection('events').doc(req.params.id);
+    const snapshot = await eventRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(404).json({ error: 'Event not found.' });
+    }
+
+    const current = snapshot.data() || {};
+    const { title, subject, startTime, endTime } = req.body as {
+      title?: string;
+      subject?: string;
+      startTime?: string;
+      endTime?: string;
+    };
+
+    const updatedEvent = {
+      ...current,
+      title: isNonEmptyString(title) ? title.trim() : typeof current.title === 'string' ? current.title : '',
+      subject: typeof subject === 'string' ? subject.trim() : typeof current.subject === 'string' ? current.subject : '',
+      startTime:
+        isNonEmptyString(startTime)
+          ? startTime.trim()
+          : typeof current.startTime === 'string'
+            ? current.startTime
+            : '',
+      endTime: typeof endTime === 'string' ? endTime.trim() : typeof current.endTime === 'string' ? current.endTime : '',
+      createdAt: current.createdAt || Timestamp.now(),
+      updatedAt: Timestamp.now()
+    };
+
+    await eventRef.set(updatedEvent);
+    res.json(serializeEvent(snapshot.id, updatedEvent));
+  } catch (error) {
+    console.error('Failed to update event', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to update event.') });
+  }
+});
+
+app.delete('/events/:id', async (req, res) => {
+  try {
+    const eventRef = db.collection('events').doc(req.params.id);
+    const snapshot = await eventRef.get();
+
+    if (!snapshot.exists) {
+      return res.status(404).json({ error: 'Event not found.' });
+    }
+
+    await eventRef.delete();
+    res.json({ message: 'Event deleted successfully.' });
+  } catch (error) {
+    console.error('Failed to delete event', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to delete event.') });
+  }
+});
+
+app.get('/progress', async (_req, res) => {
+  try {
+    const [notesSnap, tasksSnap, eventsSnap] = await Promise.all([
+      db.collection('notes').get(),
+      db.collection('tasks').get(),
+      db.collection('events').get()
+    ]);
+
+    const totalNotes = notesSnap.size;
+    const totalTasks = tasksSnap.size;
+    const totalEvents = eventsSnap.size;
+    const completedTasks = tasksSnap.docs.filter((doc) => doc.data().status === 'done').length;
+    const pendingTasks = totalTasks - completedTasks;
+    const completionRate = totalTasks ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+    res.json({
+      totalNotes,
+      totalTasks,
+      completedTasks,
+      pendingTasks,
+      totalEvents,
+      completionRate
+    });
+  } catch (error) {
+    console.error('Failed to load dashboard progress', error);
+    res.status(500).json({ error: getErrorMessage(error, 'Failed to load dashboard progress.') });
+  }
+});
+
+app.post('/summarize', async (req, res) => {
+  const { text = '' } = req.body as { text?: string };
+
+  if (!isNonEmptyString(text)) {
+    return res.status(400).json({ error: 'Text is required.' });
+  }
+
+  res.json({
+    summary: summarizeTranscriptToNotes(text)
+  });
+});
+
+app.post('/quiz', async (req, res) => {
+  const { text = '' } = req.body as { text?: string };
+
+  if (!isNonEmptyString(text)) {
+    return res.status(400).json({ error: 'Text is required.' });
+  }
+
+  res.json({
+    questions: generateQuizFromText(text)
+  });
+});
+
 app.post('/generateQuiz', async (req, res) => {
   const { sourceText = '' } = req.body as { sourceText?: string };
   const questions = generateQuizFromText(sourceText);

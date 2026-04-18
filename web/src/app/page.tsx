@@ -1,125 +1,199 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { collection, addDoc, onSnapshot, orderBy, query, serverTimestamp } from "firebase/firestore";
-import { onAuthStateChanged, User } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
 
-type NoteItem = {
+type Note = {
   id: string;
-  text: string;
-  email?: string;
+  title: string;
+  subject?: string;
+  createdAt?: string | null;
 };
 
-export default function ClassesPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [note, setNote] = useState("");
-  const [notes, setNotes] = useState<NoteItem[]>([]);
-  const [status, setStatus] = useState("");
+type Task = {
+  id: string;
+  title: string;
+  subject?: string;
+  priority?: string;
+  status?: string;
+  createdAt?: string | null;
+};
 
-  const classId = "cloud-computing";
+type EventItem = {
+  id: string;
+  title: string;
+  subject?: string;
+  startTime?: string;
+  createdAt?: string | null;
+};
+
+type FeedState = {
+  notes: Note[];
+  tasks: Task[];
+  events: EventItem[];
+};
+
+const emptyFeed: FeedState = {
+  notes: [],
+  tasks: [],
+  events: []
+};
+
+export default function HomePage() {
+  const [feed, setFeed] = useState<FeedState>(emptyFeed);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!auth || !db) {
-      setStatus("Configure Firebase web env vars to enable shared notes.");
-      return;
+    async function loadFeed() {
+      try {
+        const [notes, tasks, events] = await Promise.all([
+          api.getNotes<Note[]>(),
+          api.getTasks<Task[]>(),
+          api.getEvents<EventItem[]>()
+        ]);
+
+        const sortByCreatedAt = <T extends { createdAt?: string | null }>(items: T[]) =>
+          [...items]
+            .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+            .slice(0, 4);
+
+        setFeed({
+          notes: sortByCreatedAt(notes),
+          tasks: sortByCreatedAt(tasks),
+          events: sortByCreatedAt(events)
+        });
+      } catch (loadError) {
+        console.error(loadError);
+        setError(loadError instanceof Error ? loadError.message : 'Failed to load the study dashboard.');
+      } finally {
+        setLoading(false);
+      }
     }
 
-    const unsubAuth = onAuthStateChanged(auth, (u) => setUser(u));
-
-    const notesRef = collection(db, "classes", classId, "notes");
-    const q = query(notesRef, orderBy("createdAt", "asc"));
-
-    const unsubNotes = onSnapshot(
-      q,
-      (snapshot) => {
-        const items: NoteItem[] = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<NoteItem, "id">),
-        }));
-        setNotes(items);
-      },
-      (error) => {
-        console.error(error);
-        setStatus("Failed to load live notes");
-      }
-    );
-
-    return () => {
-      unsubAuth();
-      unsubNotes();
-    };
+    void loadFeed();
   }, []);
 
-  const addNote = async () => {
-    if (!db) {
-      setStatus("Configure Firebase web env vars to enable shared notes.");
-      return;
-    }
-
-    if (!user) {
-      setStatus("Please sign in first");
-      return;
-    }
-
-    if (!note.trim()) {
-      setStatus("Write something first");
-      return;
-    }
-
-    try {
-      await addDoc(collection(db, "classes", classId, "notes"), {
-        text: note,
-        email: user.email,
-        userId: user.uid,
-        createdAt: serverTimestamp(),
-      });
-      setNote("");
-      setStatus("Note added");
-    } catch (error) {
-      console.error(error);
-      setStatus("Failed to add note");
-    }
-  };
-
   return (
-    <main className="grid">
-      <section className="card">
-        <h2>Shared Class Notes</h2>
-        <p className="muted">Class: {classId}</p>
+    <main className="stack">
+      <section className="hero-panel">
+        <div className="hero-copy">
+          <span className="badge">Reference UI merged into main</span>
+          <h1 className="page-title">Your study hub now keeps notes, tasks, events, and speech-to-text in one flow.</h1>
+          <p className="page-subtitle">
+            The broader app structure from the reference branch is back on `main`, with the richer recording and
+            transcription workflow preserved as the centerpiece.
+          </p>
+        </div>
 
-        <div style={{ marginTop: 16 }}>
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder="Type a shared note..."
-            style={{ width: "100%", minHeight: 120, padding: 12, borderRadius: 12 }}
+        <div className="hero-actions">
+          <Link href="/transcript" className="btn">
+            Open Speech Studio
+          </Link>
+          <Link href="/notes" className="btn secondary">
+            Manage Notes
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid grid-3">
+        <Link href="/transcript" className="feature-card">
+          <span className="feature-eyebrow">Speech to text</span>
+          <h2>Record, upload, transcribe, and convert lectures into notes.</h2>
+          <p>Microphone recording, audio preview, saved transcription history, and note generation stay on `main`.</p>
+        </Link>
+
+        <Link href="/events" className="feature-card">
+          <span className="feature-eyebrow">Collaboration</span>
+          <h2>Manage study events and share sessions through Google Calendar.</h2>
+          <p>Create internal events or send a shared calendar invite from the same screen.</p>
+        </Link>
+
+        <Link href="/quiz" className="feature-card">
+          <span className="feature-eyebrow">Revision</span>
+          <h2>Turn study material into quick quiz prompts for active recall.</h2>
+          <p>Use the quiz workspace directly or generate questions while editing notes.</p>
+        </Link>
+      </section>
+
+      {loading ? (
+        <section className="card empty-state">Loading recent activity...</section>
+      ) : error ? (
+        <section className="card empty-state">{error}</section>
+      ) : (
+        <section className="grid grid-3">
+          <FeedColumn
+            title="Recent Notes"
+            href="/notes"
+            emptyLabel="No notes yet."
+            items={feed.notes.map((item) => ({
+              id: item.id,
+              title: item.title,
+              meta: item.subject || 'General study note'
+            }))}
           />
-        </div>
-
-        <div style={{ marginTop: 12 }}>
-          <button className="btn primary" onClick={addNote}>
-            Add Shared Note
-          </button>
-        </div>
-
-        {status && <p style={{ marginTop: 12 }}>{status}</p>}
-      </section>
-
-      <section className="card">
-        <h3>Live Notes Feed</h3>
-        <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-          {notes.map((item) => (
-            <div key={item.id} className="card">
-              <div>{item.text}</div>
-              <div className="muted" style={{ marginTop: 8 }}>
-                {item.email || "Unknown user"}
-              </div>
-            </div>
-          ))}
-          {notes.length === 0 && <p className="muted">No notes yet.</p>}
-        </div>
-      </section>
+          <FeedColumn
+            title="Recent Tasks"
+            href="/tasks"
+            emptyLabel="No tasks yet."
+            items={feed.tasks.map((item) => ({
+              id: item.id,
+              title: item.title,
+              meta: [item.subject, item.priority, item.status].filter(Boolean).join(' • ') || 'Task'
+            }))}
+          />
+          <FeedColumn
+            title="Recent Events"
+            href="/events"
+            emptyLabel="No events yet."
+            items={feed.events.map((item) => ({
+              id: item.id,
+              title: item.title,
+              meta: item.startTime ? new Date(item.startTime).toLocaleString() : item.subject || 'Study event'
+            }))}
+          />
+        </section>
+      )}
     </main>
+  );
+}
+
+function FeedColumn({
+  title,
+  href,
+  emptyLabel,
+  items
+}: {
+  title: string;
+  href: string;
+  emptyLabel: string;
+  items: Array<{ id: string; title: string; meta: string }>;
+}) {
+  return (
+    <section className="card">
+      <div className="row space-between section-head">
+        <div>
+          <h2>{title}</h2>
+          <p className="muted">Latest activity synced from Firestore.</p>
+        </div>
+        <Link href={href} className="badge text-link">
+          View all
+        </Link>
+      </div>
+
+      <div className="list-stack">
+        {items.length ? (
+          items.map((item) => (
+            <div key={item.id} className="item-card">
+              <strong>{item.title}</strong>
+              <p className="muted">{item.meta}</p>
+            </div>
+          ))
+        ) : (
+          <div className="empty-state">{emptyLabel}</div>
+        )}
+      </div>
+    </section>
   );
 }
