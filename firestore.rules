@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function inArray(field) {
+      return signedIn() && request.auth.uid in field;
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /classes/{classId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if signedIn() && inArray(resource.data.members);
+    }
+
+    match /notes/{noteId} {
+      allow read, write: if signedIn() && (
+        request.auth.uid == resource.data.ownerId ||
+        request.auth.uid in resource.data.collaborators
+      );
+      allow create: if signedIn();
+    }
+
+    match /events/{eventId} {
+      allow read, write: if signedIn() && (
+        request.auth.uid == resource.data.createdBy ||
+        request.auth.uid in resource.data.sharedWith
+      );
+      allow create: if signedIn();
+    }
+
+    match /transcripts/{jobId} {
+      allow read, write: if signedIn() && request.auth.uid == resource.data.ownerId;
+      allow create: if signedIn();
+    }
+
+    match /quizzes/{quizId} {
+      allow read, write: if signedIn();
+    }
+  }
+}
