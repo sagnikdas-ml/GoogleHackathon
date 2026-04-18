@@ -89,6 +89,7 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+_reference_final/
 
 # Build artifacts
 dist/

@@ -166,7 +166,7 @@ function FeedColumn({
   items
 }: {
   title: string;
-  href: string;
+  href: '/notes' | '/tasks' | '/events';
   emptyLabel: string;
   items: Array<{ id: string; title: string; meta: string }>;
 }) {

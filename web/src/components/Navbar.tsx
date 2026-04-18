@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const links = [
+const links: Array<{
+  href: '/' | '/dashboard' | '/notes' | '/tasks' | '/events' | '/transcript' | '/quiz';
+  label: string;
+}> = [
   { href: '/', label: 'Home' },
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/notes', label: 'Notes' },
