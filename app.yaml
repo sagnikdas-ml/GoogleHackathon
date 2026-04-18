@@ -1,0 +1,7 @@
+runtime: nodejs24
+entrypoint: npm start
+
+env_variables:
+  TRANSCRIPTS_COLLECTION: transcriptions
+  TRANSCRIPTS_LANGUAGE: en-US
+  TRANSCRIPTS_MODEL: short

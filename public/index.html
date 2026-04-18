@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SpeechText Recorder</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Google Cloud Speech Recorder</p>
+        <h1>Record a voice note, transcribe it, and keep the result in your GCP project.</h1>
+        <p class="lede">
+          Audio is recorded in the browser, sent to App Engine, transcribed with
+          Speech-to-Text, stored in Firestore, and optionally uploaded to Cloud Storage.
+        </p>
+      </section>
+
+      <section class="panel recorder-panel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-kicker">Recorder</p>
+            <h2>Capture audio</h2>
+          </div>
+          <span id="statusBadge" class="badge idle">Idle</span>
+        </div>
+
+        <form id="recordForm" class="controls">
+          <label class="field">
+            <span>Language</span>
+            <select id="languageCode" name="languageCode">
+              <option value="en-US">English (US)</option>
+              <option value="en-IN">English (India)</option>
+              <option value="de-DE">German</option>
+              <option value="hi-IN">Hindi</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Model</span>
+            <select id="model" name="model">
+              <option value="short">Short</option>
+              <option value="long">Long</option>
+              <option value="latest_short">Latest short</option>
+              <option value="latest_long">Latest long</option>
+            </select>
+          </label>
+        </form>
+
+        <div class="recorder-actions">
+          <button id="recordButton" class="primary-button" type="button">Start recording</button>
+          <button id="stopButton" class="secondary-button" type="button" disabled>Stop</button>
+        </div>
+
+        <div class="meter-wrap">
+          <div id="meterBar" class="meter-bar"></div>
+        </div>
+
+        <div class="preview">
+          <audio id="audioPreview" controls hidden></audio>
+          <p id="feedback" class="feedback">Press start and speak into your microphone.</p>
+        </div>
+
+        <article id="latestTranscript" class="latest-transcript hidden">
+          <p class="panel-kicker">Latest transcript</p>
+          <p id="latestTranscriptText"></p>
+        </article>
+      </section>
+
+      <section class="panel history-panel">
+        <div class="panel-header">
+          <div>
+            <p class="panel-kicker">Saved history</p>
+            <h2>Recent transcriptions</h2>
+          </div>
+          <button id="refreshButton" class="ghost-button" type="button">Refresh</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </section>
+    </main>
+
+    <template id="historyItemTemplate">
+      <article class="history-item">
+        <div class="history-meta">
+          <span class="history-date"></span>
+          <span class="history-lang"></span>
+        </div>
+        <p class="history-transcript"></p>
+        <a class="history-audio" target="_blank" rel="noreferrer noopener"></a>
+      </article>
+    </template>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>
